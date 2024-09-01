@@ -81,7 +81,6 @@ export const getRestaurantDetails = async (req: Request, res: Response) => {
             address: data.formattedAddress,
         }
 
-        console.log(response);
         restaurants.set(placeId, restaurant);
 
         console.log('Fetched from Google');
