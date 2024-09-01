@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
 import { Restaurant, restaurants } from '../models/restaurantModel';
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
+import prisma from '../prismaClient';
 
-export const getAllRestaurants = (req: Request, res: Response) => {
-    res.json(Array.from(restaurants.keys()));
+export const getAllRestaurants = async (req: Request, res: Response) => {
+    try {
+        const restaurants = await prisma.restaurant.findMany();
+        res.json(restaurants);
+    } catch (error) {
+        console.error('Error fetching restaurants:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
 
 export const autocompleteRestaurants = async (req: Request, res: Response) => {
@@ -56,10 +62,18 @@ export const getRestaurantDetails = async (req: Request, res: Response) => {
     let restaurant: Restaurant | undefined;
 
     // Do we have it stored?
-    restaurant = restaurants.get(placeId);
-    if (restaurant) {
-        console.log('Fetched from cache');
-        return res.status(200).json(restaurant);
+    try {
+        let restaurant = await prisma.restaurant.findUnique({
+            where: { placeId }
+        });
+
+        if (restaurant) {
+            console.log('Fetched from cache');
+            return res.status(200).json(restaurant);
+        }
+    } catch (error) {
+        console.error('Error fetching restaurant from DB', error);
+        return res.status(500).json({ message: 'Internal server error' });
     }
 
     // Ask Google
@@ -72,19 +86,25 @@ export const getRestaurantDetails = async (req: Request, res: Response) => {
         }
 
         const response = await axios.get(placeUrl, { headers });
-        const data = response.data
+        const data = response.data;
 
-        restaurant = {
-            id: uuidv4(),
-            name: data.displayName.text,
-            placeId: data.id,
-            address: data.formattedAddress,
+        try {
+            const newRestaurant = await prisma.restaurant.create({
+                data: {
+                    placeId: data.id,
+                    name: data.displayName.text,
+                    address: data.formattedAddress,
+                    sumRatings: 0,
+                    numRatings: 0,
+                }
+            });
+
+            console.log('Fetched from Google');
+            res.status(200).json(newRestaurant);
+        } catch (error) {
+            console.error('Error adding restaurant:', error);
+            res.status(500).json({ message: 'Internal server error' });
         }
-
-        restaurants.set(placeId, restaurant);
-
-        console.log('Fetched from Google');
-        res.status(200).json(restaurant);
     } catch (error: any) {
         console.error(`Error fetching autocomplete results`, error);
         console.log(JSON.stringify(error.response.data));

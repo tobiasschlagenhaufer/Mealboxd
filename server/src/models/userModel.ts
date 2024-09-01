@@ -1,6 +1,5 @@
 export interface RestaurantRating {
     id: string,
-    restaurantId: string,
     placeId: string,
     userId: string,
     rating: number,
@@ -14,10 +13,7 @@ export interface User {
     email?: string,
     phone?: string,
     password: string,
-    googleId: string,
-    restaurantRatings: RestaurantRating[],
-    favouritedRestaurants: string[];
+    googleId?: string,
+    ratings: RestaurantRating[],
+    favourites: string[];
 }
-
-export const users: Map<string, User> = new Map();
-export const restaurantRatings: Map<string, RestaurantRating[]> = new Map();
