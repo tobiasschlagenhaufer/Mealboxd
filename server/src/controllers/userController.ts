@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
-import { User, RestaurantRating } from '../models/userModel';
-import { v4 as uuidv4 } from 'uuid';
-import { restaurants } from '../models/restaurantModel';
+import { User, RestaurantRating, forceUserFields } from '../models/userModel';
 import prisma from '../prismaClient';
+import bcrypt from 'bcrypt';
 
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
-        const users = await prisma.user.findMany();
+        const users: User[] = await prisma.user.findMany(forceUserFields);
         res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -18,7 +17,8 @@ export const getUserById = async (req: Request, res: Response) => {
     const userId = req.params.id;
 
     try {
-        const foundUser = await prisma.user.findUnique({
+        const foundUser: User | null = await prisma.user.findUnique({
+            ...forceUserFields,
             where: { id: userId },
         });
 
@@ -48,7 +48,8 @@ export const signup = async (req: Request, res: Response) => {
 
     // Check if username exists
     try {
-        const foundUser = await prisma.user.findUnique({
+        const foundUser: User | null = await prisma.user.findUnique({
+            ...forceUserFields,
             where: { username: username },
         });
 
@@ -62,7 +63,8 @@ export const signup = async (req: Request, res: Response) => {
 
     // Create new user
     try {
-        const newUser = await prisma.user.create({
+        const newUser: User = await prisma.user.create({
+            ...forceUserFields,
             data: {
                 username,
                 email,
@@ -85,7 +87,8 @@ export const login = async (req: Request, res: Response) => {
     }
 
     try {
-        const foundUser = await prisma.user.findUnique({
+        const foundUser: User | null = await prisma.user.findUnique({
+            ...forceUserFields,
             where: { username: username },
         });
 
@@ -102,7 +105,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const getAllRestaurantRatings = async (req: Request, res: Response) => {
     try {
-        const restaurantRatings = await prisma.restaurantRating.findMany();
+        const restaurantRatings: RestaurantRating[] = await prisma.restaurantRating.findMany();
         res.json(restaurantRatings);
     } catch (error) {
         console.error('Error while fetching res ratings:', error);
@@ -123,7 +126,8 @@ export const rateRestaurant = async (req: Request, res: Response) => {
     }
 
     try {
-        const user = await prisma.user.findUnique({
+        const user: User | null = await prisma.user.findUnique({
+            ...forceUserFields,
             where: { id: userId }
         });
 
@@ -131,7 +135,7 @@ export const rateRestaurant = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        const newRating = await prisma.restaurantRating.create({
+        const newRating: RestaurantRating = await prisma.restaurantRating.create({
             data: {
                 userId,
                 placeId,

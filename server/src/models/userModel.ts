@@ -1,3 +1,5 @@
+import { Restaurant } from "@prisma/client";
+
 export interface RestaurantRating {
     id: string,
     placeId: string,
@@ -10,10 +12,17 @@ export interface RestaurantRating {
 export interface User {
     id: string,
     username: string,
-    email?: string,
-    phone?: string,
+    email?: string | null,
+    phone?: string | null,
     password: string,
-    googleId?: string,
+    googleId?: string | null,
     ratings: RestaurantRating[],
-    favourites: string[];
+    favourites: Restaurant[];
+}
+
+export const forceUserFields = {
+    include: {
+        ratings: true,
+        favourites: true,
+    }
 }

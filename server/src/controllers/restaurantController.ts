@@ -5,7 +5,7 @@ import prisma from '../prismaClient';
 
 export const getAllRestaurants = async (req: Request, res: Response) => {
     try {
-        const restaurants = await prisma.restaurant.findMany();
+        const restaurants: Restaurant[] = await prisma.restaurant.findMany();
         res.json(restaurants);
     } catch (error) {
         console.error('Error fetching restaurants:', error);
@@ -59,11 +59,11 @@ export const autocompleteRestaurants = async (req: Request, res: Response) => {
 
 export const getRestaurantDetails = async (req: Request, res: Response) => {
     const placeId = req.params.placeId;
-    let restaurant: Restaurant | undefined;
+    var restaurant: Restaurant | null;
 
     // Do we have it stored?
     try {
-        let restaurant = await prisma.restaurant.findUnique({
+        restaurant = await prisma.restaurant.findUnique({
             where: { placeId }
         });
 
@@ -89,7 +89,7 @@ export const getRestaurantDetails = async (req: Request, res: Response) => {
         const data = response.data;
 
         try {
-            const newRestaurant = await prisma.restaurant.create({
+            restaurant = await prisma.restaurant.create({
                 data: {
                     placeId: data.id,
                     name: data.displayName.text,
@@ -100,7 +100,7 @@ export const getRestaurantDetails = async (req: Request, res: Response) => {
             });
 
             console.log('Fetched from Google');
-            res.status(200).json(newRestaurant);
+            res.status(200).json(restaurant);
         } catch (error) {
             console.error('Error adding restaurant:', error);
             res.status(500).json({ message: 'Internal server error' });
