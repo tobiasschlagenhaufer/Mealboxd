@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { User, RestaurantRating, forceUserFields } from '../models/userModel';
 import prisma from '../prismaClient';
 import bcrypt from 'bcrypt';
+import jwt, { Secret } from 'jsonwebtoken';
+
+interface UserRequest extends Request {
+    user?: User
+}
 
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
@@ -34,6 +39,10 @@ export const getUserById = async (req: Request, res: Response) => {
 
 }
 
+const generateJwtToken = (user: User) => {
+    return jwt.sign({ userId: user.id }, process.env.JWT_SECRET as Secret, { expiresIn: '1h' });
+};
+
 export const signup = async (req: Request, res: Response) => {
     const {
         username,
@@ -45,6 +54,8 @@ export const signup = async (req: Request, res: Response) => {
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required' });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 11);
 
     // Check if username exists
     try {
@@ -69,38 +80,35 @@ export const signup = async (req: Request, res: Response) => {
                 username,
                 email,
                 phone,
-                password,
+                password: hashedPassword,
             },
         });
-        res.status(201).json(newUser);
+        const token = generateJwtToken(newUser);
+
+        res.status(201).json({ user: newUser, token: token });
     } catch (error) {
         console.error('Error creating user:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 }
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: UserRequest, res: Response) => {
     const { username, password } = req.body;
+    const user: User = req.user as User;
 
     if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required' });
     }
 
-    try {
-        const foundUser: User | null = await prisma.user.findUnique({
-            ...forceUserFields,
-            where: { username: username },
-        });
+    const isCorrentPassword = await bcrypt.compare(password, user.password)
 
-        if (!foundUser || foundUser.password != password) {
-            return res.status(401).json({ message: 'Invalid username or password' });
-        }
-
-        res.json(foundUser);
-    } catch (error) {
-        console.error('Error while fetching user:', error);
-        res.status(500).json({ message: 'Internal server error' });
+    if (!isCorrentPassword) {
+        return res.status(401).json({ message: 'Invalid username or password' });
     }
+
+    const token = generateJwtToken(user);
+
+    res.json({ user: user, token: token });
 }
 
 export const getAllRestaurantRatings = async (req: Request, res: Response) => {
@@ -113,11 +121,11 @@ export const getAllRestaurantRatings = async (req: Request, res: Response) => {
     }
 }
 
-export const rateRestaurant = async (req: Request, res: Response) => {
+export const rateRestaurant = async (req: UserRequest, res: Response) => {
     const { placeId, rating, comment } = req.body;
-    const userId = req.headers['user-id'] as string;
+    const user = req.user; // We can trust this exists as its from the auth middleware
 
-    if (!placeId || !rating || !userId) {
+    if (!placeId || !rating || !user) {
         return res.status(400).json({ message: 'placeid, rating, and user are required' });
     }
 
@@ -126,18 +134,9 @@ export const rateRestaurant = async (req: Request, res: Response) => {
     }
 
     try {
-        const user: User | null = await prisma.user.findUnique({
-            ...forceUserFields,
-            where: { id: userId }
-        });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
         const newRating: RestaurantRating = await prisma.restaurantRating.create({
             data: {
-                userId,
+                userId: user.id,
                 placeId,
                 rating: Number(rating),
                 comment: comment || ''
